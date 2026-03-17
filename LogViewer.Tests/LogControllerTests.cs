@@ -115,12 +115,12 @@ namespace LogViewer.Tests
                 new LogLevelStatsDto { Level = "Error", Count = 10 },
                 new LogLevelStatsDto { Level = "Warning", Count = 20 }
             };
-
-            _mockLogService.Setup(s => s.GetLevelStatsAsync())
+            var parameters = new LogStatsParameters {  };
+            _mockLogService.Setup(s => s.GetLevelStatsAsync(parameters))
                 .ReturnsAsync(expectedStats);
 
             // Act
-            var result = await _controller.GetLevelStats();
+            var result = await _controller.GetLevelStats(parameters);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -135,12 +135,12 @@ namespace LogViewer.Tests
             {
                 new LogTimelineStatsDto { Period = DateTime.UtcNow, Count = 50 }
             };
-
-            _mockLogService.Setup(s => s.GetTimelineStatsAsync("day"))
+            var parameters = new LogStatsTimelineParameters ();
+            _mockLogService.Setup(s => s.GetTimelineStatsAsync(parameters))
                 .ReturnsAsync(expectedStats);
 
             // Act
-            var result = await _controller.GetTimelineStats("day");
+            var result = await _controller.GetTimelineStats(parameters);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
