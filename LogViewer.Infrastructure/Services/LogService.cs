@@ -63,14 +63,14 @@ namespace LogViewer.Infrastructure.Services
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
-        public async Task<IEnumerable<LogLevelStatsDto>> GetLevelStatsAsync()
+        public async Task<IEnumerable<LogLevelStatsDto>> GetLevelStatsAsync(LogStatsParameters parameters)
         {
-            return await _logRepository.GetLevelStatsAsync();
+            return await _logRepository.GetLevelStatsAsync(parameters);
         }
 
-        public async Task<IEnumerable<LogTimelineStatsDto>> GetTimelineStatsAsync(string groupBy = "day")
+        public async Task<IEnumerable<LogTimelineStatsDto>> GetTimelineStatsAsync(LogStatsTimelineParameters parameters)
         {
-            return await _logRepository.GetTimelineStatsAsync(groupBy);
+            return await _logRepository.GetTimelineStatsAsync(parameters);
         }
 
         public async Task<IEnumerable<string>> GetDistinctSourcesAsync()
@@ -81,6 +81,11 @@ namespace LogViewer.Infrastructure.Services
         public async Task<IEnumerable<string>> GetDistinctApplicationsAsync()
         {
             return await _logRepository.GetDistinctApplicationsAsync();
+        }
+
+        public async Task<DailyStatsDto> GetDailyStatsAsync()
+        {
+            return await _logRepository.GetDailyStatsAsync();
         }
 
         private static LogDetailDto MapToDetailDto(Log l)
@@ -113,6 +118,11 @@ namespace LogViewer.Infrastructure.Services
                 return $"\"{value.Replace("\"", "\"\"")}\"";
 
             return value;
+        }
+
+        public async Task<IEnumerable<LogErrorsAndCriticalsBySource>> GetErrorAndCriticalsBySourceAsync(LogStatsParameters parameters)
+        {
+            return await _logRepository.GetErrorsAndCriticalsBySource(parameters);
         }
     }
 }

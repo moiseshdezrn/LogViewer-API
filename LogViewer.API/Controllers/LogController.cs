@@ -45,16 +45,22 @@ namespace UnosquareTechnicalExam.Controllers
         }
 
         [HttpGet("stats/levels")]
-        public async Task<IActionResult> GetLevelStats()
+        public async Task<IActionResult> GetLevelStats([FromQuery] LogStatsParameters parameters)
         {
-            var stats = await _logService.GetLevelStatsAsync();
+            var stats = await _logService.GetLevelStatsAsync(parameters);
             return Ok(stats);
         }
 
         [HttpGet("stats/timeline")]
-        public async Task<IActionResult> GetTimelineStats([FromQuery] string groupBy = "day")
+        public async Task<IActionResult> GetTimelineStats([FromQuery] LogStatsTimelineParameters parameters)
         {
-            var stats = await _logService.GetTimelineStatsAsync(groupBy);
+            var stats = await _logService.GetTimelineStatsAsync(parameters);
+            return Ok(stats);
+        }
+        [HttpGet("stats/errors-and-criticals-by-source")]
+        public async Task<IActionResult> GetErrorAndCriticalsBySource([FromQuery] LogStatsParameters parameters)
+        {
+            var stats = await _logService.GetErrorAndCriticalsBySourceAsync(parameters);
             return Ok(stats);
         }
 
@@ -70,6 +76,13 @@ namespace UnosquareTechnicalExam.Controllers
         {
             var applications = await _logService.GetDistinctApplicationsAsync();
             return Ok(applications);
+        }
+
+        [HttpGet("stats/daily")]
+        public async Task<IActionResult> GetDailyStats()
+        {
+            var stats = await _logService.GetDailyStatsAsync();
+            return Ok(stats);
         }
     }
 }

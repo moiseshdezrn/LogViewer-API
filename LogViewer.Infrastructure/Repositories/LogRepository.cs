@@ -1,9 +1,11 @@
-using System.Linq.Expressions;
 using LogViewer.Core.DTOs;
 using LogViewer.Core.Entities;
+using LogViewer.Core.Enums;
 using LogViewer.Infrastructure.DatabaseContext;
 using LogViewer.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq.Expressions;
 
 namespace LogViewer.Infrastructure.Repositories
 {
@@ -20,7 +22,7 @@ namespace LogViewer.Infrastructure.Repositories
 
         public async Task<(IEnumerable<Log> Items, int TotalCount)> GetPagedAsync(LogQueryParameters parameters)
         {
-            var query = BuildFilteredQuery(parameters);
+            var query = BuildFilteredLogsQuery(parameters);
 
             var totalCount = await query.CountAsync();
 
@@ -41,13 +43,16 @@ namespace LogViewer.Infrastructure.Repositories
 
         public async Task<IEnumerable<Log>> GetFilteredAsync(LogQueryParameters parameters)
         {
-            return await BuildFilteredQuery(parameters).ToListAsync();
+            return await BuildFilteredLogsQuery(parameters).ToListAsync();
         }
 
-        public async Task<IEnumerable<LogLevelStatsDto>> GetLevelStatsAsync()
+        public async Task<IEnumerable<LogLevelStatsDto>> GetLevelStatsAsync(LogStatsParameters parameters)
         {
             return await _context.Logs
                 .AsNoTracking()
+                .Where( 
+                    l => (!parameters.StartDate.HasValue || l.Timestamp >= parameters.StartDate.Value) && 
+                    (!parameters.EndDate.HasValue || l.Timestamp < parameters.EndDate.Value.Date.AddDays(1)))
                 .GroupBy(l => l.Level)
                 .Select(g => new LogLevelStatsDto
                 {
@@ -58,24 +63,33 @@ namespace LogViewer.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<LogTimelineStatsDto>> GetTimelineStatsAsync(string groupBy)
+        public async Task<IEnumerable<LogTimelineStatsDto>> GetTimelineStatsAsync(LogStatsTimelineParameters parameters)
         {
-            if (string.Equals(groupBy, "hour", StringComparison.OrdinalIgnoreCase))
+            IEnumerable<LogTimelineStatsDto>? returnValue = null;
+
+            
+            if (string.Equals(parameters.GroupBy, LogTimeLinePeriodConstants.HOUR, StringComparison.OrdinalIgnoreCase))
             {
-                return await _context.Logs
+                returnValue = _context.Logs
                     .AsNoTracking()
+                     .Where(
+                    l => (!parameters.StartDate.HasValue || l.Timestamp >= parameters.StartDate.Value) &&
+                    (!parameters.EndDate.HasValue || l.Timestamp < parameters.EndDate.Value.Date.AddDays(1)))
                     .GroupBy(l => new { l.Timestamp.Date, l.Timestamp.Hour })
                     .Select(g => new LogTimelineStatsDto
                     {
                         Period = g.Key.Date.AddHours(g.Key.Hour),
                         Count = g.Count()
                     })
-                    .OrderBy(x => x.Period)
-                    .ToListAsync();
+                    .OrderBy(x => x.Period);
+                return returnValue.ToList();
             }
-
+          
             return await _context.Logs
                 .AsNoTracking()
+                 .Where(
+                    l => (!parameters.StartDate.HasValue || l.Timestamp >= parameters.StartDate.Value) &&
+                    (!parameters.EndDate.HasValue || l.Timestamp < parameters.EndDate.Value.Date.AddDays(1)))
                 .GroupBy(l => l.Timestamp.Date)
                 .Select(g => new LogTimelineStatsDto
                 {
@@ -106,7 +120,45 @@ namespace LogViewer.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        private IQueryable<Log> BuildFilteredQuery(LogQueryParameters parameters)
+        public async Task<DailyStatsDto> GetDailyStatsAsync()
+        {
+            var now = DateTime.UtcNow;
+            var last24Hours = now.AddHours(-24);
+
+            var logsLast24Hours = await _context.Logs
+                .AsNoTracking()
+                .Where(l => l.Timestamp >= last24Hours)
+                .ToListAsync();
+
+            var totalLogs = await _context.Logs.AsNoTracking().CountAsync();
+            var errorCount = logsLast24Hours.Count(l => string.Equals(l.Level, "Error", StringComparison.OrdinalIgnoreCase));
+            var criticalCount = logsLast24Hours.Count(l => string.Equals(l.Level, "Critical", StringComparison.OrdinalIgnoreCase));
+            var avgLogsPerHour = logsLast24Hours.Count / 24.0;
+
+            return new DailyStatsDto
+            {
+                TotalLogs = totalLogs,
+                ErrorCount = errorCount,
+                CriticalCount = criticalCount,
+                AverageLogsPerHour = Math.Round(avgLogsPerHour, 2)
+            };
+        }
+
+        public async Task<IEnumerable<LogErrorsAndCriticalsBySource>> GetErrorsAndCriticalsBySource(LogStatsParameters parameters, int take = 10)
+        {
+            return await _context.Logs
+                .AsNoTracking()
+                .Where(
+                    l => (l.Level.Equals(LogLevelConstants.ERROR) || l.Level.Equals(LogLevelConstants.CRITICAL)) &&
+                    (!parameters.StartDate.HasValue || l.Timestamp >= parameters.StartDate.Value) &&
+                    (!parameters.EndDate.HasValue || l.Timestamp < parameters.EndDate.Value.Date.AddDays(1)))
+                .GroupBy(l => l.Source)
+                .Select(g => new LogErrorsAndCriticalsBySource { Source = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
+                .Take(take)
+                .ToListAsync();
+        }
+        private IQueryable<Log> BuildFilteredLogsQuery(LogQueryParameters parameters)
         {
             var query = _context.Logs.AsNoTracking().AsQueryable();
 
@@ -161,5 +213,6 @@ namespace LogViewer.Infrastructure.Repositories
 
             return isDescending ? query.OrderByDescending(keySelector) : query.OrderBy(keySelector);
         }
+
     }
 }

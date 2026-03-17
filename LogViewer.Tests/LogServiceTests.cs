@@ -216,7 +216,7 @@ namespace LogViewer.Tests
                 new LogTimelineStatsDto { Period = DateTime.UtcNow, Count = 50 }
             };
 
-            _mockLogRepository.Setup(r => r.GetTimelineStatsAsync("day"))
+            _mockLogRepository.Setup(r => r.GetTimelineStatsAsync("day", LogTimeLinePeriodConstants))
                 .ReturnsAsync(expectedStats);
 
             // Act
